@@ -105,5 +105,8 @@ GSYMS
 /tools/pthreads*.zip
 /tools/sequitur
 /tools/srilm.tgz
+/tools/cub
+/tools/cub-1.5.2
+/tools/cub-1.5.2.zip
 
 /kaldiwin_vs*

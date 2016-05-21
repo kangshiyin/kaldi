@@ -4,7 +4,7 @@ $(error DOUBLE_PRECISION not defined.)
 endif
 
 
-CUDA_INCLUDE= -I$(CUDATKDIR)/include
+CUDA_INCLUDE= -I$(CUDATKDIR)/include -I$(CUBDIR)
 CUDA_FLAGS = -g -Xcompiler -fPIC --verbose --machine 64 -DHAVE_CUDA \
              -DKALDI_DOUBLEPRECISION=$(DOUBLE_PRECISION)
 CXXFLAGS += -DHAVE_CUDA -I$(CUDATKDIR)/include

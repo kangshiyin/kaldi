@@ -72,7 +72,7 @@ function usage {
   echo 'Usage: ./configure [--static|--shared] [--threaded-atlas={yes|no}] [--atlas-root=ATLASROOT] [--fst-root=FSTROOT]
   [--openblas-root=OPENBLASROOOT] [--clapack-root=CLAPACKROOT] [--mkl-root=MKLROOT] [--mkl-libdir=MKLLIBDIR]
   [--omp-libdir=OMPDIR] [--static-fst={yes|no}] [--static-math={yes|no}] [--threaded-math={yes|no}] [--mathlib=ATLAS|MKL|CLAPACK|OPENBLAS]
-  [--use-cuda={yes|no}] [--cudatk-dir=CUDATKDIR][--mkl-threading=sequential|iomp|tbb|gomp]';
+  [--use-cuda={yes|no}] [--cudatk-dir=CUDATKDIR] [--cub-dir=CUBDIR] [--mkl-threading=sequential|iomp|tbb|gomp]';
 }
 
 threaded_atlas=false #  By default, use the un-threaded version of ATLAS.
@@ -178,6 +178,9 @@ do
     shift ;;
   --mathlib=*)
     MATHLIB=`expr "X$1" : '[^=]*=\(.*\)'`;
+    shift ;;
+  --cub-dir=*)
+    CUBDIR=`read_dirname $1`;
     shift ;;
   --cudatk-dir=*)
     CUDATKDIR=`read_dirname $1`;
@@ -426,16 +429,23 @@ function configure_cuda {
       fi
     done
   fi
+  if [ ! -d  "$CUBDIR" ]; then
+    CUBDIR=`rel2abs ../tools/cub`
+  fi
 
   if [ -d "$CUDATKDIR" ]; then
     if [ ! -f $CUDATKDIR/bin/nvcc ]; then
       failure "Cannnot find nvcc in CUDATKDIR=$CUDATKDIR"
+    fi
+    if [ ! -f $CUBDIR/cub/cub.cuh ]; then
+      failure "Cannnot find cub/cub.cuh in CUDBDIR=$CUBDIR"
     fi
     echo "Using CUDA toolkit $CUDATKDIR (nvcc compiler and runtime libraries)"
     echo >> kaldi.mk
     echo "#Next section enables CUDA for compilation" >> kaldi.mk
     echo CUDA = true >> kaldi.mk
     echo CUDATKDIR = $CUDATKDIR >> kaldi.mk
+    echo CUBDIR = $CUBDIR >> kaldi.mk
 
     # Determine 'CUDA_ARCH',
     CUDA_VERSION=$($CUDATKDIR/bin/nvcc -V | tr '.,' '_ ' | awk '/release/{sub(/.*release/,""); print $1;}') # MAJOR_MINOR,

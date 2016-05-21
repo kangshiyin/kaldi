@@ -27,14 +27,14 @@ else
   endif
 endif
 
-all: check_required_programs sph2pipe atlas sclite openfst
+all: check_required_programs sph2pipe atlas sclite openfst cub
 	@echo -e "\n\n"
 	@echo "Warning: IRSTLM is not installed by default anymore. If you need IRSTLM"
 	@echo "Warning: use the script extras/install_irstlm.sh"
 	@echo "All done OK."
 
 # make sure check_required_programs runs before anything else:
-sph2pipe atlas sclite openfst sctk: | check_required_programs
+sph2pipe atlas sclite openfst sctk cub: | check_required_programs
 
 check_required_programs:
 	extras/check_dependencies.sh
@@ -60,7 +60,20 @@ distclean:
 	rm -rf openfst-$(OPENFST_VERSION).tar.gz
 	rm -f openfst
 	rm -rf libsndfile-1.0.25{,.tar.gz} BeamformIt-3.51{,.tgz}
+	rm -f  cub
+	rm -f  cub-1.5.2.zip
+	rm -rf cub-1.5.2/
 
+.PHONY: cub
+cub: cub-1.5.2
+	rm -f cub
+	ln -s cub-1.5.2 cub
+
+cub-1.5.2: cub-1.5.2.zip
+	unzip cub-1.5.2.zip
+
+cub-1.5.2.zip:
+	wget -T 10 -O cub-1.5.2.zip https://github.com/NVlabs/cub/archive/1.5.2.zip
 
 .PHONY: openfst # so target will be made even though "openfst" exists.
 openfst: openfst_compiled openfst-$(OPENFST_VERSION)/lib
