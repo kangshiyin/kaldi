@@ -25,6 +25,7 @@
 // In this file is the CUDA code of the CUDA kernels, plus the ANSI-C wrappers
 
 #include <cfloat>
+#include <cub/cub.cuh>
 #include "cudamatrix/cu-kernels-ansi.h"
 
 
@@ -711,10 +712,13 @@ template<int TileDim, typename Real>
 __global__
 static void _trace_mat_mat(const Real* A, const Real* B, MatrixDim dA,
     int B_stride, Real* value) {
+
+  typedef cub::BlockReduce<Real, TileDim, cub::BLOCK_REDUCE_RAKING, CU1DBLOCK / TileDim> BlockReduce;
+
   // Reuse shared mem and make indexing easier. "+1" to avoid bank conflict
   __shared__ union {
     Real trans[TileDim][TileDim + 1];
-    Real sum[CU1DBLOCK];
+    typename BlockReduce::TempStorage sum;
   } smem;
   const int32_cuda tid = threadIdx.y * blockDim.x + threadIdx.x; // linear thread id;
   const int32_cuda grid_height = gridDim.y * TileDim;
@@ -724,7 +728,7 @@ static void _trace_mat_mat(const Real* A, const Real* B, MatrixDim dA,
   int32_cuda ia = blockIdx.y * TileDim + threadIdx.y;
   int32_cuda jb = blockIdx.y * TileDim + threadIdx.x;
 
-  // Grid reduce
+  // Grid reduce to one element per thread.
   Real tsum = Real(0);
   for (int32_cuda i0 = 0; i0 < dA.rows; i0 += grid_height) {
     // Load from B, transpose the block and store in shared mem
@@ -755,42 +759,28 @@ static void _trace_mat_mat(const Real* A, const Real* B, MatrixDim dA,
     jb += grid_height;
   }
 
-  smem.sum[tid] = tsum;
-  __syncthreads();
-
-  // Block reduce
-# pragma unroll
-  for (int shift = CU1DBLOCK / 2; shift > warpSize; shift >>= 1) {
-    if (tid < shift)
-      smem.sum[tid] += smem.sum[tid + shift];
-    __syncthreads();
-  }
-
-  // Warp reduce. Implicitly synchronized within a warp.
-  if (tid < warpSize) {
-#   pragma unroll
-    for (int shift = warpSize; shift > 0; shift >>= 1) {
-      smem.sum[tid] += smem.sum[tid + shift];
-    }
-  }
+  // Block reduce to one element per block.
+  Real sum = BlockReduce(smem.sum).Sum(tsum);
 
   // output 1 sum per thread block
   if (tid == 0) {
-    value[blockIdx.y * gridDim.x + blockIdx.x] = smem.sum[0];
+    value[blockIdx.y * gridDim.x + blockIdx.x] = sum;
   }
 }
 
 // _trace_mat_mat_trans reduce the partial sum to value[blockIdx.y * gridDim.x + blockIdx.x]
-template<typename Real>
+template<int TileDim, typename Real>
 __global__
 static void _trace_mat_mat_trans(const Real* A, const Real* B, MatrixDim dA, int B_stride, Real* value) {
-  __shared__ Real ssum[CU1DBLOCK];
+
+  typedef cub::BlockReduce<Real, TileDim, cub::BLOCK_REDUCE_RAKING, CU1DBLOCK / TileDim> BlockReduce;
+
   const int32_cuda tid = threadIdx.y * blockDim.x + threadIdx.x; // linear thread id;
   const int32_cuda j = blockIdx.x * blockDim.x + threadIdx.x;
   const int32_cuda grid_height = gridDim.y * blockDim.y;
   int32_cuda i = blockIdx.y * blockDim.y + threadIdx.y;
 
-  // Grid reduce
+  // Reduce to one element per thread.
   Real tsum = Real(0);
   if (j < dA.cols) {
     while (i < dA.rows) {
@@ -798,28 +788,13 @@ static void _trace_mat_mat_trans(const Real* A, const Real* B, MatrixDim dA, int
       i += grid_height;
     }
   }
-  ssum[tid] = tsum;
-  __syncthreads();
 
-  // Block reduce
-# pragma unroll
-  for (int shift = CU1DBLOCK / 2; shift > warpSize; shift >>= 1) {
-    if (tid < shift)
-      ssum[tid] += ssum[tid + shift];
-    __syncthreads();
-  }
+  // Reduce to one element per block.
+  Real sum = BlockReduce().Sum(tsum);
 
-  // Warp reduce. Implicitly synchronized within a warp.
-  if (tid < warpSize) {
-#   pragma unroll
-    for (int shift = warpSize; shift > 0; shift >>= 1) {
-      ssum[tid] += ssum[tid + shift];
-    }
-  }
-
-  // output 1 sum per thread block
+  // output 1 sum per block
   if (tid == 0) {
-    value[blockIdx.y * gridDim.x + blockIdx.x] = ssum[0];
+    value[blockIdx.y * gridDim.x + blockIdx.x] = sum;
   }
 }
 
@@ -2425,7 +2400,7 @@ void cudaF_vec_max(int Gr, int Bl, const float* v, float* value, int dim, int in
 }
 
 void cudaF_trace_mat_mat_trans(dim3 Gr, dim3 Bl, const float* A, const float* B, MatrixDim dA, int B_stride, float* value) {
-  _trace_mat_mat_trans<<<Gr,Bl>>>(A,B,dA,B_stride,value);
+  _trace_mat_mat_trans<32><<<Gr,Bl>>>(A,B,dA,B_stride,value);
 }
 
 void cudaF_trace_mat_mat(dim3 Gr, dim3 Bl, const float* A, const float* B, MatrixDim dA, int B_stride, float* value) {
@@ -2894,7 +2869,7 @@ void cudaD_vec_max(int Gr, int Bl, const double* v, double* value, int dim, int 
 }
 
 void cudaD_trace_mat_mat_trans(dim3 Gr, dim3 Bl, const double* A, const double* B, MatrixDim dA, int B_stride, double* value) {
-  _trace_mat_mat_trans<<<Gr,Bl>>>(A,B,dA,B_stride,value);
+  _trace_mat_mat_trans<32><<<Gr,Bl>>>(A,B,dA,B_stride,value);
 }
 
 void cudaD_trace_mat_mat(dim3 Gr, dim3 Bl, const double* A, const double* B, MatrixDim dA, int B_stride, double* value) {
