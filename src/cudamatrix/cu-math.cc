@@ -236,65 +236,89 @@ void Randomize(const CuMatrixBase<double> &src,
 
 // not calling this Sigmoid to reduce the chance of future collisions.
 static inline BaseFloat ScalarSigmoid(BaseFloat a) {
-  if (a > 0.0) {
-    return 1.0 / (1.0 + Exp(-a));
+  if (a > BaseFloat(0)) {
+    return BaseFloat(1) / (BaseFloat(1) + Exp(-a));
   } else {
     Real x = Exp(a);
-    return x / (x + 1.0);
+    return x / (x + BaseFloat(1));
   }
 }
 
 static inline BaseFloat ScalarTanh(BaseFloat a) {
-  if (a > 0.0) {
+  if (a > BaseFloat(0)) {
     Real inv_expa = Exp(-a);
-    return -1.0 + 2.0 / (1.0 + inv_expa * inv_expa);
+    return -BaseFloat(1) + BaseFloat(2) / (BaseFloat(1) + inv_expa * inv_expa);
   } else {
     Real expa = Exp(a);
-    return = 1.0 - 2.0 / (1.0 + expa * expa);
+    return BaseFloat(1) - BaseFloat(2) / (BaseFloat(1) + expa * expa);
   }
 }
 
+void CpuComputeLstmNonlinearity(const MatrixBase<BaseFloat> &input_mat,
+                                const MatrixBase<BaseFloat> &params_mat,
+                                MatrixBase<BaseFloat> *output) {
+  int32 num_rows = input.NumRows();
+  int32 cell_dim = input.NumCols() / 5;
+  KALDI_ASSERT(
+      output->NumRows() == num_rows && input.NumCols() % 5 == 0
+          && params.NumRows() == 3 && params.NumCols() == cell_dim
+          && output->NumCols() == 2 * cell_dim);
+
+  MatrixBase<BaseFloat> &output_mat = *output;
+  const BaseFloat *params_data = params_mat.Data();
+  int32 params_stride = params_mat.Stride();
+  for (int32 r = 0; r < num_rows; r++) {
+    const BaseFloat *input_row = input_mat.RowData(r);
+    BaseFloat *output_row = output_mat.RowData(r);
+    for (int32 c = 0; c < cell_dim; c++) {
+      BaseFloat i_part = input_row[c];
+      BaseFloat f_part = input_row[c + cell_dim];
+      BaseFloat c_part = input_row[c + 2 * cell_dim];
+      BaseFloat o_part = input_row[c + 3 * cell_dim];
+      BaseFloat c_prev = input_row[c + 4 * cell_dim];
+      BaseFloat w_ic = params_data[c];
+      BaseFloat w_fc = params_data[c + params_stride];
+      BaseFloat w_oc = params_data[c + params_stride * 2];
+      BaseFloat i_t = ScalarSigmoid(i_part + w_ic * c_prev);
+      BaseFloat f_t = ScalarSigmoid(f_part + w_fc * c_prev);
+      BaseFloat o_t = ScalarSigmoid(o_part + w_oc * c_t);
+      BaseFloat c_t = f_t * c_prev + i_t * ScalarTanh(c_part);
+      BaseFloat m_t = o_t * ScalarTanh(c_t);
+      output_row[c] = c_t;
+      output_row[c + cell_dim] = m_t;
+    }
+  }
+}
 
 void ComputeLstmNonlinearity(const CuMatrixBase<BaseFloat> &input,
                              const CuMatrixBase<BaseFloat> &params,
                              CuMatrixBase<BaseFloat> *output) {
-  int32 num_rows = input.NumRows(),
-      cell_dim = input.NumCols() / 5;
-  KALDI_ASSERT(output->NumRows() == num_rows &&
-               input.NumCols() % 5 == 0 &&
-               params.NumRows() == 3 && params.NumCols() == cell_dim &&
-               output->NumCols() == 2 * cell_dim);
+  int32 num_rows = input.NumRows();
+  int32 cell_dim = input.NumCols() / 5;
+  KALDI_ASSERT(
+      output->NumRows() == num_rows && input.NumCols() % 5 == 0
+          && params.NumRows() == 3 && params.NumCols() == cell_dim
+          && output->NumCols() == 2 * cell_dim);
 
 #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
-    KALDI_ERR << "CUDA version not implemented";
+    Timer tim;
+
+    // Each thread block is working on 1 row of the data.
+    // It's best that cell dim is a multiple fo CU1DBLOCK
+    dim3 dimBlock(CU1DBLOCK);
+    dim3 dimGrid(num_rows);
+
+    cuda_lstm_nonlinearity(dimGrid, dimBlock, input.Data(), input.Stride(),
+                           params.Data(), params.Stride(), output->Stride(),
+                           cell_dim, num_rows, output->Data());
+    CU_SAFE_CALL(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
   } else
 #endif
   {
-    const MatrixBase<BaseFloat> &input_mat = input.Mat(),
-        &params_mat = params.Mat();
-    MatrixBase<BaseFloat> &output_mat = *output;
-    const BaseFloat *params_data = params_mat.Data();
-    int32 params_stride = params_mat.Stride();
-    for (int32 r = 0; r < num_rows; r++) {
-      const BaseFloat *input_row = input_mat.RowData(r);
-      BaseFloat *output_row = output_mat.RowData(r);
-      for (int32 c = 0; c < cell_dim; c++) {
-        BaseFloat i_part = input_row[c], f_part = input_row[c + cell_dim],
-            c_part = input_row[c + 2 * cell_dim],
-            o_part = input_row[c + 3 * cell_dim],
-            c_prev = input_row[c + 4 * cell_dim],
-            w_ic = params_data[c], w_fc = params_data[c + params_stride],
-            w_oc = params_data[c + params_stride * 2];
-        BaseFloat i_t = ScalarSigmoid(i_part + w_ic * c_prev),
-            f_t = ScalarSigmoid(f_part + w_fc * c_prev),
-            c_t = f_t * c_prev + i_t * Tanh(c_part),
-            o_t = ScalarSigmoid(o_part + w_oc * c_t),
-            m_t = o_t * ScalarTanh(c_t);
-        output_row[c] = c_t;
-        output_row[c + cell_dim] = m_t;
-      }
-    }
+    CpuComputeLstmNonlinearity(input.Mat(), params.Mat(), &output->Mat());
   }
 }
 
