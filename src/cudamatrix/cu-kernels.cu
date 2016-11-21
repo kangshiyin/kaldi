@@ -2672,9 +2672,9 @@ static void _lstm_nonlinearity(const Real* in, const int in_stride,
   const Real* c_tm1 = in + i * in_stride + cell_dim * 4;
   const Real* w_ic = params;
   const Real* w_fc = params + params_stride;
-  const Real* w_oc = params + params_stride*2;
-  const Real* c_t = out + i * out_stride;
-  const Real* m_t = out + i * out_stride + cell_dim;
+  const Real* w_oc = params + params_stride * 2;
+  Real* c_t = out + i * out_stride;
+  Real* m_t = out + i * out_stride + cell_dim;
 
   for (int j = tid; j < cell_dim; j += CU1DBLOCK) {
     Real c_tm1_j = c_tm1[j];

@@ -235,70 +235,76 @@ void Randomize(const CuMatrixBase<double> &src,
 
 
 // not calling this Sigmoid to reduce the chance of future collisions.
-static inline BaseFloat ScalarSigmoid(BaseFloat a) {
-  if (a > BaseFloat(0)) {
-    return BaseFloat(1) / (BaseFloat(1) + Exp(-a));
+template<typename Real>
+static inline Real ScalarSigmoid(Real a) {
+  if (a > Real(0)) {
+    return Real(1) / (Real(1) + Exp(-a));
   } else {
     Real x = Exp(a);
-    return x / (x + BaseFloat(1));
+    return x / (x + Real(1));
   }
 }
 
-static inline BaseFloat ScalarTanh(BaseFloat a) {
-  if (a > BaseFloat(0)) {
+template<typename Real>
+static inline Real ScalarTanh(Real a) {
+  if (a > Real(0)) {
     Real inv_expa = Exp(-a);
-    return -BaseFloat(1) + BaseFloat(2) / (BaseFloat(1) + inv_expa * inv_expa);
+    return -Real(1) + Real(2) / (Real(1) + inv_expa * inv_expa);
   } else {
     Real expa = Exp(a);
-    return BaseFloat(1) - BaseFloat(2) / (BaseFloat(1) + expa * expa);
+    return Real(1) - Real(2) / (Real(1) + expa * expa);
   }
 }
 
-void CpuComputeLstmNonlinearity(const MatrixBase<BaseFloat> &input_mat,
-                                const MatrixBase<BaseFloat> &params_mat,
-                                MatrixBase<BaseFloat> *output) {
-  int32 num_rows = input.NumRows();
-  int32 cell_dim = input.NumCols() / 5;
-  KALDI_ASSERT(
-      output->NumRows() == num_rows && input.NumCols() % 5 == 0
-          && params.NumRows() == 3 && params.NumCols() == cell_dim
-          && output->NumCols() == 2 * cell_dim);
+template<typename Real>
+void CpuComputeLstmNonlinearity(const MatrixBase<Real> &input_mat,
+                                const MatrixBase<Real> &params_mat,
+                                MatrixBase<Real> *output) {
+  int32 num_rows = input_mat.NumRows();
+  int32 cell_dim = input_mat.NumCols() / 5;
+  KALDI_ASSERT(output->NumRows() == num_rows);
+  KALDI_ASSERT(input_mat.NumCols() % 5 == 0);
+  KALDI_ASSERT(params_mat.NumRows() == 3);
+  KALDI_ASSERT(params_mat.NumCols() == cell_dim);
+  KALDI_ASSERT(output->NumCols() == 2 * cell_dim);
 
-  MatrixBase<BaseFloat> &output_mat = *output;
-  const BaseFloat *params_data = params_mat.Data();
+  MatrixBase<Real> &output_mat = *output;
+  const Real *params_data = params_mat.Data();
   int32 params_stride = params_mat.Stride();
   for (int32 r = 0; r < num_rows; r++) {
-    const BaseFloat *input_row = input_mat.RowData(r);
-    BaseFloat *output_row = output_mat.RowData(r);
+    const Real *input_row = input_mat.RowData(r);
+    Real *output_row = output_mat.RowData(r);
     for (int32 c = 0; c < cell_dim; c++) {
-      BaseFloat i_part = input_row[c];
-      BaseFloat f_part = input_row[c + cell_dim];
-      BaseFloat c_part = input_row[c + 2 * cell_dim];
-      BaseFloat o_part = input_row[c + 3 * cell_dim];
-      BaseFloat c_prev = input_row[c + 4 * cell_dim];
-      BaseFloat w_ic = params_data[c];
-      BaseFloat w_fc = params_data[c + params_stride];
-      BaseFloat w_oc = params_data[c + params_stride * 2];
-      BaseFloat i_t = ScalarSigmoid(i_part + w_ic * c_prev);
-      BaseFloat f_t = ScalarSigmoid(f_part + w_fc * c_prev);
-      BaseFloat o_t = ScalarSigmoid(o_part + w_oc * c_t);
-      BaseFloat c_t = f_t * c_prev + i_t * ScalarTanh(c_part);
-      BaseFloat m_t = o_t * ScalarTanh(c_t);
+      Real i_part = input_row[c];
+      Real f_part = input_row[c + cell_dim];
+      Real c_part = input_row[c + 2 * cell_dim];
+      Real o_part = input_row[c + 3 * cell_dim];
+      Real c_prev = input_row[c + 4 * cell_dim];
+      Real w_ic = params_data[c];
+      Real w_fc = params_data[c + params_stride];
+      Real w_oc = params_data[c + params_stride * 2];
+      Real i_t = ScalarSigmoid(i_part + w_ic * c_prev);
+      Real f_t = ScalarSigmoid(f_part + w_fc * c_prev);
+      Real c_t = f_t * c_prev + i_t * ScalarTanh(c_part);
+      Real o_t = ScalarSigmoid(o_part + w_oc * c_t);
+      Real m_t = o_t * ScalarTanh(c_t);
       output_row[c] = c_t;
       output_row[c + cell_dim] = m_t;
     }
   }
 }
 
-void ComputeLstmNonlinearity(const CuMatrixBase<BaseFloat> &input,
-                             const CuMatrixBase<BaseFloat> &params,
-                             CuMatrixBase<BaseFloat> *output) {
+template<typename Real>
+void ComputeLstmNonlinearity(const CuMatrixBase<Real> &input,
+                             const CuMatrixBase<Real> &params,
+                             CuMatrixBase<Real> *output) {
   int32 num_rows = input.NumRows();
   int32 cell_dim = input.NumCols() / 5;
-  KALDI_ASSERT(
-      output->NumRows() == num_rows && input.NumCols() % 5 == 0
-          && params.NumRows() == 3 && params.NumCols() == cell_dim
-          && output->NumCols() == 2 * cell_dim);
+  KALDI_ASSERT(output->NumRows() == num_rows);
+  KALDI_ASSERT(input.NumCols() % 5 == 0);
+  KALDI_ASSERT(params.NumRows() == 3);
+  KALDI_ASSERT(params.NumCols() == cell_dim);
+  KALDI_ASSERT(output->NumCols() == 2 * cell_dim);
 
 #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
@@ -322,6 +328,23 @@ void ComputeLstmNonlinearity(const CuMatrixBase<BaseFloat> &input,
   }
 }
 
+template
+void CpuComputeLstmNonlinearity(const MatrixBase<float> &input_mat,
+                                const MatrixBase<float> &params_mat,
+                                MatrixBase<float> *output);
+template
+void CpuComputeLstmNonlinearity(const MatrixBase<double> &input_mat,
+                                const MatrixBase<double> &params_mat,
+                                MatrixBase<double> *output);
+template
+void ComputeLstmNonlinearity(const CuMatrixBase<float> &input,
+                             const CuMatrixBase<float> &params,
+                             CuMatrixBase<float> *output);
+template
+void ComputeLstmNonlinearity(const CuMatrixBase<double> &input,
+                             const CuMatrixBase<double> &params,
+                             CuMatrixBase<double> *output);
+
 
 void BackpropLstmNonlinearity(const CuMatrixBase<BaseFloat> &input,
                               const CuMatrixBase<BaseFloat> &params,
@@ -334,47 +357,47 @@ void BackpropLstmNonlinearity(const CuMatrixBase<BaseFloat> &input,
                               CuMatrixBase<double> *value_sum_out,
                               CuMatrixBase<double> *deriv_sum_out,
                               CuMatrixBase<BaseFloat> *self_repair_sum_out) {
-  int32 num_rows = input.NumRows(),
-      cell_dim = input.NumCols() / 5;
-  KALDI_ASSERT(output_deriv.NumRows() == num_rows &&
-               input.NumCols() % 5 == 0 &&
-               params.NumRows() == 3 && params.NumCols() == cell_dim &&
-               output_deriv.NumCols() == 2 * cell_dim &&
-               deriv_sum_in.NumRows() == 5 && deriv_sum_in.NumCols() == cell_dim
-               && self_repair_config.Dim() == 10 && count_in >= 0);
-  if (input_deriv != NULL) {
-    KALDI_ASSERT(SameDim(input, *input_deriv));
-  }
-  if (params_deriv == NULL) {
-    KALDI_ASSERT(value_sum_out == NULL && deriv_sum_out == NULL &&
-                 self_repair_sum_out == NULL);
-  } else {
-    KALDI_ASSERT(value_sum_out != NULL && deriv_sum_out != NULL &&
-                 self_repair_sum_out != NULL && SameDim(params, *params_deriv) &&
-                 value_sum_out->NumRows() == 5 &&
-                 value_sum_out->NumCols() == cell_dim &&
-                 SameDim(* ...
-                         // HERE
-
-  KALDI_ASSERT(input.NumRows() == output->NumRows() &&
-               input.NumCols() % 5 == 0 &&
-               output->NumCols() == 2 * (input.NumCols() / 5));
-  int32 num_rows = input.NumRows(),
-      cell_dim = input.NumCols() / 5;
-
-#if HAVE_CUDA == 1
-  if (CuDevice::Instantiate().Enabled()) {
-    KALDI_ERR << "CUDA version not implemented";
-  // notes for Shiyin:
-    //  You could do an 'easy' initial version where we have have one thread per dimension,
-    //  and you can try optimizing this later on.
-    //  Since the cell-dim is usually quite large, like 1024, this is fairly reasonable.
-    // But up to you.
-  } else
-#endif
-  {
-
-  }
+//  int32 num_rows = input.NumRows(),
+//      cell_dim = input.NumCols() / 5;
+//  KALDI_ASSERT(output_deriv.NumRows() == num_rows &&
+//               input.NumCols() % 5 == 0 &&
+//               params.NumRows() == 3 && params.NumCols() == cell_dim &&
+//               output_deriv.NumCols() == 2 * cell_dim &&
+//               deriv_sum_in.NumRows() == 5 && deriv_sum_in.NumCols() == cell_dim
+//               && self_repair_config.Dim() == 10 && count_in >= 0);
+//  if (input_deriv != NULL) {
+//    KALDI_ASSERT(SameDim(input, *input_deriv));
+//  }
+//  if (params_deriv == NULL) {
+//    KALDI_ASSERT(value_sum_out == NULL && deriv_sum_out == NULL &&
+//                 self_repair_sum_out == NULL);
+//  } else {
+//    KALDI_ASSERT(value_sum_out != NULL && deriv_sum_out != NULL &&
+//                 self_repair_sum_out != NULL && SameDim(params, *params_deriv) &&
+//                 value_sum_out->NumRows() == 5 &&
+//                 value_sum_out->NumCols() == cell_dim &&
+//                 SameDim(* ...
+//                         // HERE
+//
+//  KALDI_ASSERT(input.NumRows() == output->NumRows() &&
+//               input.NumCols() % 5 == 0 &&
+//               output->NumCols() == 2 * (input.NumCols() / 5));
+//  int32 num_rows = input.NumRows(),
+//      cell_dim = input.NumCols() / 5;
+//
+//#if HAVE_CUDA == 1
+//  if (CuDevice::Instantiate().Enabled()) {
+//    KALDI_ERR << "CUDA version not implemented";
+//  // notes for Shiyin:
+//    //  You could do an 'easy' initial version where we have have one thread per dimension,
+//    //  and you can try optimizing this later on.
+//    //  Since the cell-dim is usually quite large, like 1024, this is fairly reasonable.
+//    // But up to you.
+//  } else
+//#endif
+//  {
+//
+//  }
 }
 
 
