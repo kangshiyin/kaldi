@@ -2688,6 +2688,118 @@ static void _lstm_nonlinearity(const Real* in, const int in_stride,
 }
 
 
+/**
+   This function does the 'backward' pass corresponding to the function
+   ComputeLstmNonlinearity.  It's a little more complicated than you might
+   expect because of the 'self-repair' mechanism that we use to prevent the
+   sigmoid and tanh nonlinearities oversaturating,  and because of the
+   average-activation and average-derivative stats that we store for these
+   nonlinearites (these stats are used both to control the self-repair
+   mechanism, and for diagnostic purposes).
+
+   Because the forward pass computes various intermediate values that are not
+   output, this function actually has to do the same computations as the
+   forward pass before it actually does the backprop.
+
+   In the following description, `C` is for `cell_dim`, `N` is for `num_rows`.
+
+ @param [in]  input  The same as in ComputeLstmNonlinearity().
+                     A matrix, of dimension N by 5C (i.e. its num-cols must be
+                     a multiple of 5).  The column-space is interpreted as 5
+                     consecutive blocks, each of dimension C, which we name:
+                     (i_part, f_part, c_part, o_part, c_{t-1}).
+ @param [in] params  The same as in ComputeLstmNonlinearity().
+                     A matrix, of dimension 3 by C, with rows containing the
+                     three diagonal parameter matrices used in LSTMs, namely
+                     w_{ic}, w_{fc} and w_{oc}.
+ @param [in] output_deriv
+                     A matrix, of dimension N by 2C, containing the derivative
+                     of the objective function we're backpropagating,
+                     w.r.t. the quantities c_t and m_t (in two blocks of
+                     column-dimension C).
+ @param [in] deriv_sum_in
+                     This is used in the self-repair code to identify
+                     oversaturated nonlinearities.
+                     It is a matrix, of dimension 5 by C, corresponding to
+                     the totals of the derivatives of the 5 sigmoid and tanh
+                     nonlinearities, in they order they appear in the equations
+                     in the documentation of ComputeLstmNonlinearity()
+                     respectively,
+                     they appear in the equations for (i_t, f_t, c_t, o_t, m_t).
+                     This will be divided by 'count_in' to get the average
+                     derivative value so far, for each of the nonlinearities.
+ @param [in] self_repair_config
+                     A vector of dimension 10, containing the configuration of
+                     the self-repair to be used for the 5 nonlinearities.
+                     The first 5 elements are the self_repair_lower_threshold
+                     values (typically 0.05 for sigmoid and 0.2 for tanh),
+                     and the next 5 elements are the corresponding
+                     self-repair-scales (typically 10^-5).
+ @param [in] count_in  The data-count that corresponds to the stats in
+                     'deriv_sum_in' at entry to the function.
+                     This function should tolerate the count being zero
+                     (in that case, it is free to do the self-repair or not,
+                     as this should only happen on the 1st minibatch of each
+                     training job).
+ @param [out] input_deriv
+                     May be NULL; if not, this function writes, to this
+                     location, the backpropagated derivative of the objective
+                     function w.r.t. the 'input' matrix.  This matrix should
+                     have the same dimension as 'input' i.e.  N by 5C.  In
+                     addition to the regular backpropagated derivative, the
+                     output will include small values relating to 'self-repair'.
+ @param [out] params_deriv
+                     May be NULL; if not, this is where this function *writes*
+                     [not adds] the backpropagated derivative of the objective
+                     function w.r.t. 'params'; it should have the same dimension
+                     as 'params' (3 by C).  (This matrix will then be processed
+                     by the natural gradient code and added to the appropriate
+                     copy of the parameter matrix, outside this function).
+ @param [out] value_sum_out
+                     Must be NULL if params_deriv is NULL; if not, a matrix of
+                     dimension 5 by C.  This function *adds* to this location
+                     the total value of each of the sigmoid/tanh nonlinearities
+                     that it computes (this is for diagnostic purposes).
+ @param [out] deriv_sum_out
+                     Must be NULL if params_deriv is NULL; if not, a matrix of
+                     dimension 5 by C; this function *adds* to this location the
+                     total of the derivative of each of the sigmoid/tanh
+                     nonlinearities that it computes (this is for diagnostic
+                     purposes and to control the self-repair).  This function
+                     should tolerate the case when 'deriv_sum_out' points to the
+                     same data as 'deriv_sum_in'.
+ @param [out] self_repair_sum_out
+                     Must be NULL if params_deriv is NULL; if not, a matrix of
+                     dimension 5 by C; this function *writes* to this location
+                     the sum of the number of times the self-repair code was
+                     activated (integer values 0 <= k <= N).  This will be
+                     processed outside this function into self-repair stats for
+                     diagnostics.
+*/
+template<int TileDim, typename Real>
+__global__
+static void _diff_lstm_nonlinearity(const int cell_dim, const int num_rows,
+                                    const double* input, const int input_stride,
+                                    const double* params,
+                                    const int params_stride,
+                                    const double* output_deriv,
+                                    const int output_deriv_stride,
+                                    const double* deriv_sum_in,
+                                    const int deriv_sum_in_stride,
+                                    const double* self_repair_config,
+                                    double count, double* input_deriv,
+                                    const int input_deriv_stride,
+                                    double* params_deriv,
+                                    const int params_deriv_stride,
+                                    double* value_sum_out,
+                                    const int value_sum_out_stride,
+                                    double* deriv_sum_out,
+                                    const int deriv_sum_out_stride,
+                                    double* self_repair_sum_out,
+                                    const int self_repair_sum_out_stride) {
+
+}
+
 /***********************************************************************
  * ANSI-C wrappers of CUDA kernels
  */
@@ -4104,5 +4216,64 @@ void cudaF_lstm_nonlinearity(dim3 Gr, dim3 Bl, const float* in,
                              float* out) {
   _lstm_nonlinearity<<<Gr, Bl>>>(in, in_stride, params, params_stride,
       out_stride, cell_dim, num_rows, out);
+}
+void cudaD_diff_lstm_nonlinearity(dim3 Gr, dim3 Bl, const int cell_dim,
+                                  const int num_rows, const double* input,
+                                  const int input_stride, const double* params,
+                                  const int params_stride,
+                                  const double* output_deriv,
+                                  const int output_deriv_stride,
+                                  const double* deriv_sum_in,
+                                  const int deriv_sum_in_stride,
+                                  const double* self_repair_config,
+                                  double count, double* input_deriv,
+                                  const int input_deriv_stride,
+                                  double* params_deriv,
+                                  const int params_deriv_stride,
+                                  double* value_sum_out,
+                                  const int value_sum_out_stride,
+                                  double* deriv_sum_out,
+                                  const int deriv_sum_out_stride,
+                                  double* self_repair_sum_out,
+                                  const int self_repair_sum_out_stride) {
+  _diff_lstm_nonlinearity<<<Gr, Bl>>>(cell_dim, num_rows, input, input_deriv,
+                          params, params_deriv, output_deriv,
+                          output_deriv_stride, deriv_sum_in,
+                          deriv_sum_in_stride, self_repair_config, count,
+                          input_deriv, input_deriv_stride, params_deriv,
+                          params_deriv_stride, value_sum_out,
+                          value_sum_out_stride, deriv_sum_out,
+                          deriv_sum_out_stride, self_repair_sum_out,
+                          self_repair_sum_out_stride);
+}
+inline void cudaF_diff_lstm_nonlinearity(dim3 Gr, dim3 Bl, const int cell_dim,
+                                         const int num_rows, const float* input,
+                                         const int in_stride,
+                                         const float* params,
+                                         const int params_stride,
+                                         const float* output_deriv,
+                                         const int output_deriv_stride,
+                                         const double* deriv_sum_in,
+                                         const int deriv_sum_in_stride,
+                                         const float* self_repair_config,
+                                         double count, float* input_deriv,
+                                         const int input_deriv_stride,
+                                         float* params_deriv,
+                                         const int params_deriv_stride,
+                                         double* value_sum_out,
+                                         const int value_sum_out_stride,
+                                         double* deriv_sum_out,
+                                         const int deriv_sum_out_stride,
+                                         float* self_repair_sum_out,
+                                         const int self_repair_sum_out_stride) {
+  _diff_lstm_nonlinearity<<<Gr, Bl>>>(cell_dim, num_rows, input, input_deriv,
+                          params, params_deriv, output_deriv,
+                          output_deriv_stride, deriv_sum_in,
+                          deriv_sum_in_stride, self_repair_config, count,
+                          input_deriv, input_deriv_stride, params_deriv,
+                          params_deriv_stride, value_sum_out,
+                          value_sum_out_stride, deriv_sum_out,
+                          deriv_sum_out_stride, self_repair_sum_out,
+                          self_repair_sum_out_stride);
 }
 
