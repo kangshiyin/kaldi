@@ -5208,7 +5208,10 @@ void LstmNonlinearityComponent::Backprop(
     cu::BackpropLstmNonlinearity(in_value, params_, out_deriv,
                                  deriv_sum_, self_repair_config_,
                                  count_, in_deriv,
-                                 NULL, NULL, NULL, NULL);
+                                 (CuMatrixBase<BaseFloat>*) NULL,
+                                 (CuMatrixBase<double>*) NULL,
+                                 (CuMatrixBase<double>*) NULL,
+                                 (CuMatrixBase<BaseFloat>*) NULL);
   } else {
     LstmNonlinearityComponent *to_update =
         dynamic_cast<LstmNonlinearityComponent*>(to_update_in);
