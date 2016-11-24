@@ -624,18 +624,72 @@ void BackpropLstmNonlinearity(const CuMatrixBase<Real> &input,
 //      dimGrid.y = std::max(1024 / dimGrid.x, 1);
 //    }
     dim3 dimGrid(n_blocks(cell_dim, dimBlock.x));
-    cuda_diff_lstm_nonlinearity(dimGrid, dimBlock, cell_dim, num_rows,
-                                input.Data(), input.Stride(), params.Data(),
-                                params.Stride(), output_deriv.Data(),
-                                output_deriv.Stride(), deriv_sum_in.Data(),
-                                deriv_sum_in.Stride(),
-                                self_repair_config.Data(), count_in + 1,
-                                input_deriv->Data(), input_deriv->Stride(),
-                                params_deriv->Data(), params_deriv->Stride(),
-                                value_sum_out->Data(), value_sum_out->Stride(),
-                                deriv_sum_out->Data(), deriv_sum_out->Stride(),
-                                self_repair_sum_out->Data(),
-                                self_repair_sum_out->Stride());
+    if (input_deriv == NULL) {
+      if (params_deriv == NULL) {
+        cuda_diff_lstm_nonlinearity(dimGrid, dimBlock, cell_dim, num_rows,
+                                    input.Data(), input.Stride(), params.Data(),
+                                    params.Stride(), output_deriv.Data(),
+                                    output_deriv.Stride(), deriv_sum_in.Data(),
+                                    deriv_sum_in.Stride(),
+                                    self_repair_config.Data(), count_in + 1,
+                                    NULL,
+                                    0,
+                                    NULL,
+                                    0,
+                                    NULL,
+                                    0,
+                                    NULL,
+                                    0,
+                                    NULL,
+                                    0);
+
+      } else {
+        cuda_diff_lstm_nonlinearity(dimGrid, dimBlock, cell_dim, num_rows,
+                                    input.Data(), input.Stride(), params.Data(),
+                                    params.Stride(), output_deriv.Data(),
+                                    output_deriv.Stride(), deriv_sum_in.Data(),
+                                    deriv_sum_in.Stride(),
+                                    self_repair_config.Data(), count_in + 1,
+                                    NULL,
+                                    0, params_deriv->Data(),
+                                    params_deriv->Stride(),
+                                    value_sum_out->Data(),
+                                    value_sum_out->Stride(),
+                                    deriv_sum_out->Data(),
+                                    deriv_sum_out->Stride(),
+                                    self_repair_sum_out->Data(),
+                                    self_repair_sum_out->Stride());
+      }
+    } else {
+      if (params_deriv == NULL) {
+        cuda_diff_lstm_nonlinearity(dimGrid, dimBlock, cell_dim, num_rows,
+                                    input.Data(), input.Stride(), params.Data(),
+                                    params.Stride(), output_deriv.Data(),
+                                    output_deriv.Stride(), deriv_sum_in.Data(),
+                                    deriv_sum_in.Stride(),
+                                    self_repair_config.Data(), count_in + 1,
+                                    input_deriv->Data(), input_deriv->Stride(),
+                                    NULL,
+                                    0, NULL, 0, NULL, 0, NULL, 0);
+      } else {
+        cuda_diff_lstm_nonlinearity(dimGrid, dimBlock, cell_dim, num_rows,
+                                    input.Data(), input.Stride(), params.Data(),
+                                    params.Stride(), output_deriv.Data(),
+                                    output_deriv.Stride(), deriv_sum_in.Data(),
+                                    deriv_sum_in.Stride(),
+                                    self_repair_config.Data(), count_in + 1,
+                                    input_deriv->Data(), input_deriv->Stride(),
+                                    params_deriv->Data(),
+                                    params_deriv->Stride(),
+                                    value_sum_out->Data(),
+                                    value_sum_out->Stride(),
+                                    deriv_sum_out->Data(),
+                                    deriv_sum_out->Stride(),
+                                    self_repair_sum_out->Data(),
+                                    self_repair_sum_out->Stride());
+      }
+    }
+
     CU_SAFE_CALL(cudaGetLastError());
 
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
