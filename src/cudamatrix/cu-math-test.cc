@@ -161,7 +161,7 @@ static void UnitTestCuMathComputeLstmNonlinearity() {
     AssertEqual(Houtput, HDoutput);
   }
 
-  for (int i = 16; i <= 1024; i *= 2) {
+  for (int i = 16; i <= 2048; i *= 2) {
     BaseFloat time_in_secs = 0.025;
     int32 num_rows = i;
     int32 cell_dim = i;
@@ -403,26 +403,45 @@ static void UnitTestBackpropLstmNonlinearity() {
     AssertEqual(hself_repair_sum_out, hdself_repair_sum_out);
   }
 
-//  for (int i = 16; i <= 1024; i *= 2) {
-//    BaseFloat time_in_secs = 0.025;
-//    int32 num_rows = i;
-//    int32 cell_dim = i;
-//    CuMatrix<Real> input(num_rows, 5 * cell_dim);
-//    CuMatrix<Real> params(3, cell_dim);
-//    CuMatrix<Real> output(num_rows, 2 * cell_dim);
-//    input.SetRandn();
-//    params.SetRandn();
-//
-//    Timer tim;
-//    int32 iter = 0;
-//    for (; tim.Elapsed() < time_in_secs; iter++)
-//      cu::ComputeLstmNonlinearity(input, params, &output);
-//
-//    BaseFloat gflops = ((BaseFloat) i * i * iter) / (tim.Elapsed() * 1.0e+09);
-//    KALDI_LOG << "For ComputeLstmNonlinearity"
-//              << (sizeof(Real)==8 ? "<double>" : "<float>") << ", for dim = "
-//              << i << ", speed was " << gflops << " gigaflops";
-//  }
+  for (int i = 16; i <= 2048; i *= 2) {
+    BaseFloat time_in_secs = 0.025;
+    int32 num_rows = i;
+    int32 cell_dim = i;
+
+    CuMatrix<Real> input(num_rows, 5 * cell_dim);
+    CuMatrix<Real> params(3, cell_dim);
+    CuMatrix<Real> output_deriv(num_rows, 2 * cell_dim);
+    CuMatrix<double> deriv_sum_in(5, cell_dim);
+    CuVector<Real> self_repair_config(10);
+    double count_in;
+
+    CuMatrix<Real> input_deriv(num_rows, 5 * cell_dim);
+    CuMatrix<Real> params_deriv(3, cell_dim);
+    CuMatrix<double> value_sum_out(5, cell_dim);
+    CuMatrix<double> deriv_sum_out(5, cell_dim);
+    CuMatrix<Real> self_repair_sum_out(5, cell_dim);
+
+    input.SetRandn();
+    params.SetRandn();
+    output_deriv.SetRandn();
+    deriv_sum_in.SetRandn();
+    self_repair_config.SetRandn();
+    count_in = Rand() % num_rows;
+
+    Timer tim;
+    int32 iter = 0;
+    for (; tim.Elapsed() < time_in_secs; iter++)
+      cu::BackpropLstmNonlinearity(input, params, output_deriv, deriv_sum_in,
+                                   self_repair_config, count_in, &input_deriv,
+                                   &params_deriv, &value_sum_out,
+                                   &deriv_sum_out, &self_repair_sum_out);
+
+
+    BaseFloat gflops = ((BaseFloat) i * i * iter) / (tim.Elapsed() * 1.0e+09);
+    KALDI_LOG << "For BackpropLstmNonlinearity"
+              << (sizeof(Real) == 8 ? "<double>" : "<float>") << ", for dim = "
+              << i << ", speed was " << gflops << " gigaflops";
+  }
 }
 
 
