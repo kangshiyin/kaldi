@@ -2798,10 +2798,14 @@ static void _diff_lstm_nonlinearity(const int cell_dim, const int num_rows,
                                     const int deriv_sum_out_stride,
                                     Real* self_repair_sum_out,
                                     const int self_repair_sum_out_stride) {
+  const int j = blockIdx.x * blockDim.x + threadIdx.x;
+  if (j>=cell_dim){
+    return;
+  }
+
   __shared__ Real smem[CU1DBLOCK];
 
   const int tid = threadIdx.y * blockDim.x + threadIdx.x;
-  const int j = blockIdx.x * blockDim.x + threadIdx.x;
   const int grid_stride = gridDim.y * blockDim.y;
   const int i0 = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -3419,7 +3423,7 @@ void cudaF_vec_max(int Gr, int Bl, const float* v, float* value, int dim,
 
 void cudaF_trace_mat_mat_trans(dim3 Gr, dim3 Bl, const float* A, const float* B,
                                MatrixDim dA, int B_stride, float* value) {
-  _trace_mat_mat_trans<32><<<Gr,Bl>>>(A,B,dA,B_stride,value);
+  _trace_mat_mat_trans<<<Gr,Bl>>>(A,B,dA,B_stride,value);
 }
 
 void cudaF_trace_mat_mat(dim3 Gr, dim3 Bl, const float* A, const float* B,
@@ -4055,7 +4059,7 @@ void cudaD_vec_max(int Gr, int Bl, const double* v, double* value, int dim,
 void cudaD_trace_mat_mat_trans(dim3 Gr, dim3 Bl, const double* A,
                                const double* B, MatrixDim dA, int B_stride,
                                double* value) {
-  _trace_mat_mat_trans<32><<<Gr,Bl>>>(A,B,dA,B_stride,value);
+  _trace_mat_mat_trans<<<Gr,Bl>>>(A,B,dA,B_stride,value);
 }
 
 void cudaD_trace_mat_mat(dim3 Gr, dim3 Bl, const double* A, const double* B,
