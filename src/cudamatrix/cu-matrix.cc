@@ -968,6 +968,38 @@ void CuMatrixBase<Real>::AddMat(Real alpha, const CuMatrixBase<Real>& A,
 }
 
 template<typename Real>
+void CuMatrixBase::AddSmat(Real alpha, const CuSparseMatrix<Real> &A,
+            MatrixTransposeType trans) {
+#if HAVE_CUDA == 1
+  if (CuDevice::Instantiate().Enabled()) {
+    CuTimer tim;
+
+    // We use warpSize threads per row to access only the nnz elements.
+    // Every CU1DBLOCK/warpSize rows share one thread block.
+    // 1D grid to cover all rows of B.
+    const int warpSize = 32;
+    dim3 dimBlock(warpSize, CU1DBLOCK / warpSize);
+    dim3 dimGrid(n_blocks(B.NumRows(), dimBlock.y));
+
+
+
+    C    // We use warpSize threads per row to access only the nnz elements.
+    // Every CU1DBLOCK/warpSize rows share one thread block.
+    // 1D grid to cover all rows of B.
+    const int warpSize = 32;
+    dim3 dimBlock(warpSize, CU1DBLOCK / warpSize);
+    dim3 dimGrid(n_blocks(B.NumRows(), dimBlock.y));
+U_SAFE_CALL(cudaGetLastError());
+    CuDevice::Instantiate().AccuProfile(__func__, tim);
+  } else
+#endif
+  {
+    Mat().AddSmat(alpha, A, trans);
+  }
+}
+
+
+template<typename Real>
 void CuMatrixBase<Real>::AddMatBlocks(Real alpha, const CuMatrixBase<Real> &A,
                                       MatrixTransposeType transA) {
   if (num_rows_ == 0 || num_cols_ == 0) return;
