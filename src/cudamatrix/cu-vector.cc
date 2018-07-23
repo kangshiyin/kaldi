@@ -591,14 +591,22 @@ void CuVectorBase<Real>::AddDiagMatMat(Real alpha, const CuMatrixBase<Real> &M,
     if (transM != transN) {
       KALDI_ASSERT(M.NumCols() == N.NumCols());
       KALDI_ASSERT(M.NumRows() == N.NumRows());
+
       if (transM == kNoTrans) {
         // Case 1: diag(M*N') == sum(M.*N, 2)
-        // 1D grid and 1D block. One block per row of N.
+        // 1D block. One block per row of N.
         // 1D grid expands along the column of N.
-        int dimBlock(CU1DBLOCK);
-        int dimGrid(M.NumRows());
-        cuda_add_diag_mat_mat_MNT(dimGrid, dimBlock, alpha, M.Data(), M.Dim(),
-                                  N.Data(), N.Stride(), beta, data_);
+        dim3 dimBlock(CU1DBLOCK);
+        dim3 dimGrid(n_blocks(M.NumCols(), dimBlock.x), M.NumRows());
+        if (dimGrid.x == 1) {
+          cuda_add_diag_mat_mat_MNT(dimGrid, dimBlock, alpha, M.Data(), M.Dim(),
+                                    N.Data(), N.Stride(), beta, data_, dim_);
+        } else {
+          CuMatrix<Real> buf(dimGrid.y, dimGrid.x);
+          cuda_add_diag_mat_mat_MNT(dimGrid, dimBlock, alpha, M.Data(), M.Dim(),
+                                    N.Data(), N.Stride(), beta, buf.Data(),
+                                    buf.Stride());
+        }
       } else {
         // Case 2: diag(M'*N) == sum(M.*N, 1)
         // 16x16 or 8x32 2D block for coalesced memory access.

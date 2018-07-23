@@ -1074,8 +1074,8 @@ template<typename Real>
 __global__
 static void _add_diag_mat_mat_MNT(const Real alpha, const Real* M,
                                   const MatrixDim dim_M, const Real* N,
-                                  const int stride_N, const Real beta,
-                                  Real* v) {
+                                  const int stride_N, const Real beta, Real* v,
+                                  const int stride_v) {
   __shared__ Real ssum[CU1DBLOCK];
   const int tid = threadIdx.x;
   const int i = blockIdx.x;
@@ -1084,7 +1084,10 @@ static void _add_diag_mat_mat_MNT(const Real alpha, const Real* M,
 
   // Loop along the matrix row. Reduce to CU1DBLOCK elements per row.
   Real tsum = Real(0);
-  for (int j = tid; j < dim_M.cols; j += CU1DBLOCK) {
+  cont
+  int grid_stride_x = CU1DBLOCK * gridDim.x;
+  for (int j = blockIdx.x * CU1DBLOCK + tid; j < dim_M.cols; j +=
+      grid_stride_x) {
     tsum += M[m_start + j] * N[n_start + j];
   }
   ssum[tid] = tsum;
@@ -1108,7 +1111,12 @@ static void _add_diag_mat_mat_MNT(const Real alpha, const Real* M,
 
   // output 1 sum per thread block
   if (tid == 0) {
-    v[i] = alpha * ssum[0] + beta * v[i];
+    if (beta == Real(0)) {
+      v[i * stride_v + blockIdx.x] = alpha * ssum[0];
+    } else {
+      v[i * stride_v + blockIdx.x] = alpha * ssum[0]
+          + beta * v[i * stride_v + blockIdx.x];
+    }
   }
 }
 
@@ -4085,8 +4093,10 @@ void cudaF_trace_mat_mat(dim3 Gr, dim3 Bl, const float* A, const float* B,
 void cudaF_add_diag_mat_mat_MNT(int Gr, int Bl, const float alpha,
                                 const float* M, const MatrixDim dim_M,
                                 const float* N, const int stride_N,
-                                const float beta, float* v) {
-  _add_diag_mat_mat_MNT<<<Gr,Bl>>>(alpha,M,dim_M,N,stride_N,beta,v);
+                                const float beta, float* v,
+                                const int stride_v) {
+  _add_diag_mat_mat_MNT<<<Gr, Bl>>>(alpha, M, dim_M, N, stride_N, beta, v,
+                                    stride_v);
 }
 
 void cudaF_add_diag_mat_mat_MTN(dim3 Gr, dim3 Bl, const float alpha,
@@ -4785,8 +4795,10 @@ void cudaD_trace_mat_mat(dim3 Gr, dim3 Bl, const double* A, const double* B,
 void cudaD_add_diag_mat_mat_MNT(int Gr, int Bl, const double alpha,
                                 const double* M, const MatrixDim dim_M,
                                 const double* N, const int stride_N,
-                                const double beta, double* v) {
-  _add_diag_mat_mat_MNT<<<Gr,Bl>>>(alpha,M,dim_M,N,stride_N,beta,v);
+                                const double beta, double* v,
+                                const int stride_v) {
+  _add_diag_mat_mat_MNT<<<Gr, Bl>>>(alpha, M, dim_M, N, stride_N, beta, v,
+                                    stride_v);
 }
 
 void cudaD_add_diag_mat_mat_MTN(dim3 Gr, dim3 Bl, const double alpha,

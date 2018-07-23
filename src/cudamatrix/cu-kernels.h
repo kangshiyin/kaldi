@@ -73,14 +73,18 @@ inline void cuda_add_diag_mat_mat_MN(dim3 Gr, dim3 Bl, const float alpha,
 inline void cuda_add_diag_mat_mat_MNT(int Gr, int Bl, const double alpha,
                                       const double* M, const MatrixDim dim_M,
                                       const double* N, const int stride_N,
-                                      const double beta, double* v) {
-  cudaD_add_diag_mat_mat_MNT(Gr, Bl, alpha, M, dim_M, N, stride_N, beta, v);
+                                      const double beta, double* v,
+                                      const int stride_v) {
+  cudaD_add_diag_mat_mat_MNT(Gr, Bl, alpha, M, dim_M, N, stride_N, beta, v,
+                             stride_v);
 }
 inline void cuda_add_diag_mat_mat_MNT(int Gr, int Bl, const float alpha,
                                       const float* M, const MatrixDim dim_M,
                                       const float* N, const int stride_N,
-                                      const float beta, float* v) {
-  cudaF_add_diag_mat_mat_MNT(Gr, Bl, alpha, M, dim_M, N, stride_N, beta, v);
+                                      const float beta, float* v,
+                                      const int stride_v) {
+  cudaF_add_diag_mat_mat_MNT(Gr, Bl, alpha, M, dim_M, N, stride_N, beta, v,
+                             stride_v);
 }
 inline void cuda_add_diag_mat_mat_MTN(dim3 Gr, dim3 Bl, const double alpha,
                                       const double* M, const int stride_M,
@@ -239,14 +243,14 @@ inline void cuda_add_rows(dim3 Gr, dim3 Bl, float alpha, float* dst,
                           MatrixDim dst_dim, int src_stride) {
   cudaF_add_rows(Gr, Bl, alpha, dst, src, reorder, dst_dim, src_stride);
 }
-inline void cuda_mul_rows(dim3 Gr, dim3 Bl, double* dst,
-                          const double* src, const MatrixIndexT_cuda* reorder,
-                          MatrixDim dst_dim, int src_stride) {
+inline void cuda_mul_rows(dim3 Gr, dim3 Bl, double* dst, const double* src,
+                          const MatrixIndexT_cuda* reorder, MatrixDim dst_dim,
+                          int src_stride) {
   cudaD_mul_rows(Gr, Bl, dst, src, reorder, dst_dim, src_stride);
 }
-inline void cuda_mul_rows(dim3 Gr, dim3 Bl, float* dst,
-                          const float* src, const MatrixIndexT_cuda* reorder,
-                          MatrixDim dst_dim, int src_stride) {
+inline void cuda_mul_rows(dim3 Gr, dim3 Bl, float* dst, const float* src,
+                          const MatrixIndexT_cuda* reorder, MatrixDim dst_dim,
+                          int src_stride) {
   cudaF_mul_rows(Gr, Bl, dst, src, reorder, dst_dim, src_stride);
 }
 inline void cuda_add_smat(dim3 Gr, dim3 Bl, double* mat, MatrixDim mat_dim,
@@ -285,15 +289,14 @@ inline void cuda_add_to_rows(dim3 Gr, dim3 Bl, float alpha, float* const * dst,
                              const float* src, MatrixDim src_dim) {
   cudaF_add_to_rows_direct(Gr, Bl, alpha, dst, src, src_dim);
 }
-inline void cuda_add_to_rows(dim3 Gr, dim3 Bl, double alpha,
-                             double* dst, const double* src,
+inline void cuda_add_to_rows(dim3 Gr, dim3 Bl, double alpha, double* dst,
+                             const double* src,
                              const MatrixIndexT_cuda* reorder,
                              MatrixDim src_dim, int dst_stride) {
   cudaD_add_to_rows(Gr, Bl, alpha, dst, src, reorder, src_dim, dst_stride);
 }
-inline void cuda_add_to_rows(dim3 Gr, dim3 Bl, float alpha,
-                             float* dst, const float* src,
-                             const MatrixIndexT_cuda* reorder,
+inline void cuda_add_to_rows(dim3 Gr, dim3 Bl, float alpha, float* dst,
+                             const float* src, const MatrixIndexT_cuda* reorder,
                              MatrixDim src_dim, int dst_stride) {
   cudaF_add_to_rows(Gr, Bl, alpha, dst, src, reorder, src_dim, dst_stride);
 }
@@ -748,9 +751,8 @@ inline void cuda_diff_lstm_nonlinearity(dim3 Gr, dim3 Bl, const int cell_dim,
                                         double* self_repair_sum_out,
                                         const int self_repair_sum_out_stride) {
   cudaD_diff_lstm_nonlinearity(Gr, Bl, cell_dim, have_dropout_mask, num_rows,
-                               input, input_stride,
-                               params, params_stride, output_deriv,
-                               output_deriv_stride, deriv_sum_in,
+                               input, input_stride, params, params_stride,
+                               output_deriv, output_deriv_stride, deriv_sum_in,
                                deriv_sum_in_stride, self_repair_config, count,
                                input_deriv, input_deriv_stride, params_deriv,
                                params_deriv_stride, value_sum_out,
@@ -779,10 +781,9 @@ inline void cuda_diff_lstm_nonlinearity(dim3 Gr, dim3 Bl, const int cell_dim,
                                         const int deriv_sum_out_stride,
                                         float* self_repair_sum_out,
                                         const int self_repair_sum_out_stride) {
-  cudaF_diff_lstm_nonlinearity(Gr, Bl, cell_dim, have_dropout_mask,
-                               num_rows, input, input_stride,
-                               params, params_stride, output_deriv,
-                               output_deriv_stride, deriv_sum_in,
+  cudaF_diff_lstm_nonlinearity(Gr, Bl, cell_dim, have_dropout_mask, num_rows,
+                               input, input_stride, params, params_stride,
+                               output_deriv, output_deriv_stride, deriv_sum_in,
                                deriv_sum_in_stride, self_repair_config, count,
                                input_deriv, input_deriv_stride, params_deriv,
                                params_deriv_stride, value_sum_out,
@@ -965,8 +966,8 @@ inline void cuda_lstm_nonlinearity(dim3 Gr, dim3 Bl, const double* in,
                                    const int have_dropout_mask,
                                    const int num_rows, double* out) {
   cudaD_lstm_nonlinearity(Gr, Bl, in, in_stride, params, params_stride,
-                          out_stride, cell_dim, have_dropout_mask,
-                          num_rows, out);
+                          out_stride, cell_dim, have_dropout_mask, num_rows,
+                          out);
 }
 inline void cuda_lstm_nonlinearity(dim3 Gr, dim3 Bl, const float* in,
                                    const int in_stride, const float* params,
@@ -975,8 +976,8 @@ inline void cuda_lstm_nonlinearity(dim3 Gr, dim3 Bl, const float* in,
                                    const int have_dropout_mask,
                                    const int num_rows, float* out) {
   cudaF_lstm_nonlinearity(Gr, Bl, in, in_stride, params, params_stride,
-                          out_stride, cell_dim, have_dropout_mask,
-                          num_rows, out);
+                          out_stride, cell_dim, have_dropout_mask, num_rows,
+                          out);
 }
 inline void cuda_matrix_add_elements(dim3 Gr, dim3 Bl, double *data,
                                      MatrixDim dim, double alpha,
@@ -1027,15 +1028,15 @@ inline void cuda_vector_copy_elements(dim3 Gr, dim3 Bl, double *data, int dim,
                                       const double *src_mat, int mat_stride,
                                       bool transpose,
                                       const MatrixIndexT_cuda* elements) {
-  cudaD_vector_copy_elements(Gr, Bl, data, dim, src_mat, mat_stride,
-                             transpose, elements);
+  cudaD_vector_copy_elements(Gr, Bl, data, dim, src_mat, mat_stride, transpose,
+                             elements);
 }
 inline void cuda_vector_copy_elements(dim3 Gr, dim3 Bl, float *data, int dim,
                                       const float *src_mat, int mat_stride,
                                       bool transpose,
                                       const MatrixIndexT_cuda* elements) {
-  cudaF_vector_copy_elements(Gr, Bl, data, dim, src_mat, mat_stride,
-                             transpose, elements);
+  cudaF_vector_copy_elements(Gr, Bl, data, dim, src_mat, mat_stride, transpose,
+                             elements);
 }
 inline void cuda_max(dim3 Gr, dim3 Bl, double *mat, const double *A,
                      MatrixDim dst_d, int src_stride) {
@@ -1494,40 +1495,35 @@ inline void cuda_mat_compress_sign(dim3 Gr, dim3 Bl, const BaseFloat *src,
 }
 // this template handles the other types that are not instantiated yet,
 // to avoid compilation errors.
-template <typename I>
+template<typename I>
 inline void cuda_mat_compress_sign(dim3 Gr, dim3 Bl, const BaseFloat *src,
-                                   MatrixDim dim, I *dest,
-                                   int dest_stride) {
-  KALDI_ERR << "Not implemented for this type.";
+                                   MatrixDim dim, I *dest, int dest_stride) {
+  KALDI_ERR<< "Not implemented for this type.";
 }
 
 inline void cuda_mat_compress(dim3 Gr, dim3 Bl, const BaseFloat *src,
-                              MatrixDim dim, int16_t *dest,
-                              int dest_stride, float inv_scale,
-                              bool bounds_check) {
-  cuda_compress_int16(Gr, Bl, src, dim, dest, dest_stride,
-                      inv_scale, bounds_check);
+                              MatrixDim dim, int16_t *dest, int dest_stride,
+                              float inv_scale, bool bounds_check) {
+  cuda_compress_int16(Gr, Bl, src, dim, dest, dest_stride, inv_scale,
+                      bounds_check);
 }
 inline void cuda_mat_compress(dim3 Gr, dim3 Bl, const BaseFloat *src,
-                              MatrixDim dim, uint16_t *dest,
-                              int dest_stride, float inv_scale,
-                              bool bounds_check) {
-  cuda_compress_uint16(Gr, Bl, src, dim, dest, dest_stride,
-                       inv_scale, bounds_check);
+                              MatrixDim dim, uint16_t *dest, int dest_stride,
+                              float inv_scale, bool bounds_check) {
+  cuda_compress_uint16(Gr, Bl, src, dim, dest, dest_stride, inv_scale,
+                       bounds_check);
 }
 inline void cuda_mat_compress(dim3 Gr, dim3 Bl, const BaseFloat *src,
-                              MatrixDim dim, uint8_t *dest,
-                              int dest_stride, float inv_scale,
-                              bool bounds_check) {
-  cuda_compress_uint8(Gr, Bl, src, dim, dest, dest_stride,
-                      inv_scale, bounds_check);
+                              MatrixDim dim, uint8_t *dest, int dest_stride,
+                              float inv_scale, bool bounds_check) {
+  cuda_compress_uint8(Gr, Bl, src, dim, dest, dest_stride, inv_scale,
+                      bounds_check);
 }
 inline void cuda_mat_compress(dim3 Gr, dim3 Bl, const BaseFloat *src,
-                              MatrixDim dim, int8_t *dest,
-                              int dest_stride, float inv_scale,
-                              bool bounds_check) {
-  cuda_compress_int8(Gr, Bl, src, dim, dest, dest_stride,
-                     inv_scale, bounds_check);
+                              MatrixDim dim, int8_t *dest, int dest_stride,
+                              float inv_scale, bool bounds_check) {
+  cuda_compress_int8(Gr, Bl, src, dim, dest, dest_stride, inv_scale,
+                     bounds_check);
 }
 
 inline void cuda_mat_uncompress(dim3 Gr, dim3 Bl, BaseFloat *dest,
@@ -1550,7 +1546,6 @@ inline void cuda_mat_uncompress(dim3 Gr, dim3 Bl, BaseFloat *dest,
                                 int src_stride, float scale) {
   cuda_uncompress_uint16(Gr, Bl, dest, dim, src, src_stride, scale);
 }
-
 
 } // namespace kaldi
 
