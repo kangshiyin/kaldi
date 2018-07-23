@@ -385,7 +385,7 @@ template<typename Real> void TestCuVectorAddDiagMatMatShape(
   int32 iter = 0;
 
   for (;tim.Elapsed() < time_in_secs; iter++) {
-    v.AddDiagMatMat(1.0, M, transM, M, transN, 0.0);
+    v.AddDiagMatMat(1.0, M, transM, N, transN, 0.0);
   }
 
   BaseFloat fnr = num_rows;
@@ -403,13 +403,13 @@ template<typename Real> void TestCuVectorAddDiagMatMatShape(
 
 template<typename Real> void CudaVectorSpeedTest() {
   const size_t a = 1 << 5;
-  const size_t b = 1 << 23;
+  const size_t b = 1 << 21;
   for (size_t i = a; i <= b; i *= 2) {
     for (size_t j = a; j <= b; j *= 2) {
       if (i * j <= a * b) {
         //TestCuVectorAddDiagMatMatShape<Real>(i, j, kNoTrans, kNoTrans);
-        //TestCuVectorAddDiagMatMatShape<Real>(i, j, kNoTrans, kTrans);
-        TestCuVectorAddDiagMatMatShape<Real>(i, j, kTrans, kNoTrans);
+        TestCuVectorAddDiagMatMatShape<Real>(i, j, kNoTrans, kTrans);
+        //TestCuVectorAddDiagMatMatShape<Real>(i, j, kTrans, kNoTrans);
         //TestCuVectorAddDiagMatMatShape<Real>(i, j, kTrans, kTrans);
       } else {
         KALDI_LOG << i << " " << j << " " << 1;
