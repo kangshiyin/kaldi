@@ -1078,7 +1078,7 @@ static void _add_diag_mat_mat_MNT(const Real alpha, const Real* M,
                                   const int stride_v) {
   __shared__ Real ssum[CU1DBLOCK];
   const int tid = threadIdx.x;
-  const int i = blockIdx.x;
+  const int i = blockIdx.y;
   const int m_start = i * dim_M.stride;
   const int n_start = i * stride_N;
 

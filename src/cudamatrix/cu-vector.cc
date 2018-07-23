@@ -598,14 +598,18 @@ void CuVectorBase<Real>::AddDiagMatMat(Real alpha, const CuMatrixBase<Real> &M,
         // 1D grid expands along the column of N.
         dim3 dimBlock(CU1DBLOCK);
         dim3 dimGrid(n_blocks(M.NumCols(), dimBlock.x), M.NumRows());
+        KALDI_LOG<< "dimBlock.x:" << dimBlock.x <<" dimBlock.y:" << dimBlock.y
+        << " dimGrid.x:" << dimGrid.x << " dimGrid.y:" << dimGrid.y
+        << " dim_:" << dim_;
         if (dimGrid.x == 1) {
           cuda_add_diag_mat_mat_MNT(dimGrid, dimBlock, alpha, M.Data(), M.Dim(),
                                     N.Data(), N.Stride(), beta, data_, dim_);
         } else {
           CuMatrix<Real> buf(dimGrid.y, dimGrid.x);
-          cuda_add_diag_mat_mat_MNT(dimGrid, dimBlock, alpha, M.Data(), M.Dim(),
-                                    N.Data(), N.Stride(), beta, buf.Data(),
-                                    buf.Stride());
+          cuda_add_diag_mat_mat_MNT(dimGrid, dimBlock, Real(1), M.Data(),
+                                    M.Dim(), N.Data(), N.Stride(), Real(0),
+                                    buf.Data(), buf.Stride());
+          this->AddColSumMat(alpha, buf, beta)
         }
       } else {
         // Case 2: diag(M'*N) == sum(M.*N, 1)
