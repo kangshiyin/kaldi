@@ -609,6 +609,7 @@ void CuVectorBase<Real>::AddDiagMatMat(Real alpha, const CuMatrixBase<Real> &M,
           cuda_add_diag_mat_mat_MNT(dimGrid, dimBlock, Real(1), M.Data(),
                                     M.Dim(), N.Data(), N.Stride(), Real(0),
                                     buf.Data(), buf.Stride());
+          CU_SAFE_CALL(cudaGetLastError());
           this->AddColSumMat(alpha, buf, beta);
         }
       } else {
