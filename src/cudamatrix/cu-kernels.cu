@@ -1078,15 +1078,15 @@ static void _add_diag_mat_mat_MNT(const Real alpha, const Real* M,
                                   const int stride_v) {
   __shared__ Real ssum[CU1DBLOCK];
   const int tid = threadIdx.x;
-  const int i = blockIdx.y;
+  const int i = blockIdx.x;
   const int m_start = i * dim_M.stride;
   const int n_start = i * stride_N;
 
   // Loop along the matrix row. Reduce to CU1DBLOCK * gridDim.x elements per row.
   Real tsum = Real(0);
-  const int grid_stride_x = CU1DBLOCK * gridDim.x;
-  for (int j = blockIdx.x * CU1DBLOCK + tid; j < dim_M.cols; j +=
-      grid_stride_x) {
+  const int grid_stride_y = CU1DBLOCK * gridDim.y;
+  for (int j = blockIdx.y * CU1DBLOCK + tid; j < dim_M.cols; j +=
+      grid_stride_y) {
     tsum += M[m_start + j] * N[n_start + j];
   }
   ssum[tid] = tsum;
@@ -1111,9 +1111,9 @@ static void _add_diag_mat_mat_MNT(const Real alpha, const Real* M,
   // output 1 sum per thread block
   if (tid == 0) {
     if (beta == Real(0)) {
-      v[i * stride_v + blockIdx.x] = alpha * ssum[0];
+      v[i * stride_v + blockIdx.y] = alpha * ssum[0];
     } else {
-      v[i * stride_v + blockIdx.x] = alpha * ssum[0]
+      v[i * stride_v + blockIdx.y] = alpha * ssum[0]
           + beta * v[i * stride_v + blockIdx.x];
     }
   }
