@@ -609,7 +609,7 @@ void CuVectorBase<Real>::AddDiagMatMat(Real alpha, const CuMatrixBase<Real> &M,
           cuda_add_diag_mat_mat_MNT(dimGrid, dimBlock, Real(1), M.Data(),
                                     M.Dim(), N.Data(), N.Stride(), Real(0),
                                     buf.Data(), buf.Stride());
-          this->AddColSumMat(alpha, buf, beta)
+          this->AddColSumMat(alpha, buf, beta);
         }
       } else {
         // Case 2: diag(M'*N) == sum(M.*N, 1)
