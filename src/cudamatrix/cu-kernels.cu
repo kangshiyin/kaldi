@@ -1084,8 +1084,7 @@ static void _add_diag_mat_mat_MNT(const Real alpha, const Real* M,
 
   // Loop along the matrix row. Reduce to CU1DBLOCK * gridDim.x elements per row.
   Real tsum = Real(0);
-  cont
-  int grid_stride_x = CU1DBLOCK * gridDim.x;
+  const int grid_stride_x = CU1DBLOCK * gridDim.x;
   for (int j = blockIdx.x * CU1DBLOCK + tid; j < dim_M.cols; j +=
       grid_stride_x) {
     tsum += M[m_start + j] * N[n_start + j];
