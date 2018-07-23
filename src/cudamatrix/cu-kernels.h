@@ -70,7 +70,7 @@ inline void cuda_add_diag_mat_mat_MN(dim3 Gr, dim3 Bl, const float alpha,
                                      const float beta, float* v) {
   cudaF_add_diag_mat_mat_MN(Gr, Bl, alpha, M, stride_M, N, dim_N, beta, v);
 }
-inline void cuda_add_diag_mat_mat_MNT(int Gr, int Bl, const double alpha,
+inline void cuda_add_diag_mat_mat_MNT(dim3 Gr, dim3 Bl, const double alpha,
                                       const double* M, const MatrixDim dim_M,
                                       const double* N, const int stride_N,
                                       const double beta, double* v,
@@ -78,7 +78,7 @@ inline void cuda_add_diag_mat_mat_MNT(int Gr, int Bl, const double alpha,
   cudaD_add_diag_mat_mat_MNT(Gr, Bl, alpha, M, dim_M, N, stride_N, beta, v,
                              stride_v);
 }
-inline void cuda_add_diag_mat_mat_MNT(int Gr, int Bl, const float alpha,
+inline void cuda_add_diag_mat_mat_MNT(dim3 Gr, dim3 Bl, const float alpha,
                                       const float* M, const MatrixDim dim_M,
                                       const float* N, const int stride_N,
                                       const float beta, float* v,

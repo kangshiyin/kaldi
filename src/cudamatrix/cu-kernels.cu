@@ -1082,7 +1082,7 @@ static void _add_diag_mat_mat_MNT(const Real alpha, const Real* M,
   const int m_start = i * dim_M.stride;
   const int n_start = i * stride_N;
 
-  // Loop along the matrix row. Reduce to CU1DBLOCK elements per row.
+  // Loop along the matrix row. Reduce to CU1DBLOCK * gridDim.x elements per row.
   Real tsum = Real(0);
   cont
   int grid_stride_x = CU1DBLOCK * gridDim.x;
@@ -4090,7 +4090,7 @@ void cudaF_trace_mat_mat(dim3 Gr, dim3 Bl, const float* A, const float* B,
   _trace_mat_mat<32> <<<Gr,Bl>>>(A,B,dA,B_stride,value);
 }
 
-void cudaF_add_diag_mat_mat_MNT(int Gr, int Bl, const float alpha,
+void cudaF_add_diag_mat_mat_MNT(dim3 Gr, dim3 Bl, const float alpha,
                                 const float* M, const MatrixDim dim_M,
                                 const float* N, const int stride_N,
                                 const float beta, float* v,
@@ -4792,7 +4792,7 @@ void cudaD_trace_mat_mat(dim3 Gr, dim3 Bl, const double* A, const double* B,
   _trace_mat_mat<32> <<<Gr,Bl>>>(A,B,dA,B_stride,value);
 }
 
-void cudaD_add_diag_mat_mat_MNT(int Gr, int Bl, const double alpha,
+void cudaD_add_diag_mat_mat_MNT(dim3 Gr, dim3 Bl, const double alpha,
                                 const double* M, const MatrixDim dim_M,
                                 const double* N, const int stride_N,
                                 const double beta, double* v,

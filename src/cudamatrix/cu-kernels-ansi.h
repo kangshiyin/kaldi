@@ -58,12 +58,12 @@ void cudaF_add_diag_mat_mat_MN(dim3 Gr, dim3 Bl, const float alpha,
                                const float* M, const int strid_M,
                                const float* N, const MatrixDim dim_N,
                                const float beta, float* v);
-void cudaD_add_diag_mat_mat_MNT(int Gr, int Bl, const double alpha,
+void cudaD_add_diag_mat_mat_MNT(dim3 Gr, dim3 Bl, const double alpha,
                                 const double* M, const MatrixDim dim_M,
                                 const double* N, const int stride_N,
                                 const double beta, double* v,
                                 const int stride_v);
-void cudaF_add_diag_mat_mat_MNT(int Gr, int Bl, const float alpha,
+void cudaF_add_diag_mat_mat_MNT(dim3 Gr, dim3 Bl, const float alpha,
                                 const float* M, const MatrixDim dim_M,
                                 const float* N, const int stride_N,
                                 const float beta, float* v, const int stride_v);
