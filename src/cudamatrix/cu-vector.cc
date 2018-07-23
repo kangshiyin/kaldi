@@ -603,7 +603,7 @@ void CuVectorBase<Real>::AddDiagMatMat(Real alpha, const CuMatrixBase<Real> &M,
         << " dim_:" << dim_;
         if (dimGrid.x == 1) {
           cuda_add_diag_mat_mat_MNT(dimGrid, dimBlock, alpha, M.Data(), M.Dim(),
-                                    N.Data(), N.Stride(), beta, data_, dim_);
+                                    N.Data(), N.Stride(), beta, data_, 1);
         } else {
           CuMatrix<Real> buf(dimGrid.y, dimGrid.x);
           cuda_add_diag_mat_mat_MNT(dimGrid, dimBlock, Real(1), M.Data(),
